@@ -9,17 +9,17 @@ One day, I had to write C++. But I refused!
 rtl::Option<std::string> opt;
 
 // implicit cast to false for "None" values
-cr_assert(!opt);
+assert(!opt);
 
 // assign some value
 opt = rtl::some("hello");
 
 // implicit cast to true for "Some" values
-cr_assert(opt);
+assert(opt);
 
 // unwrap takes ownership, leaving "None"
-cr_assert_eq(opt.unwrap(), "hello");
-cr_assert_eq(opt.unwrap_or(" world"), " world");
+assert(opt.unwrap() == "hello");
+assert(opt.unwrap_or(" world") == " world");
 
 // alternative syntax to assign a value
 opt = std::string("im here");
@@ -33,7 +33,7 @@ rtl::Option<size_t> mapped = opt
                                  .unwrap_or_default()
                                  .size();
 
-cr_assert_eq(mapped.expect("what?!"), std::strlen("im here, too!"));
+assert(mapped.expect("what?!") == std::strlen("im here, too!"));
 
 // set to none
 opt = rtl::none();
