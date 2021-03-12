@@ -62,7 +62,7 @@ Test(option, default_constructor_is_none)
 
 Test(option, some_constructor)
 {
-    rtl::Option<Unique> opt = rtl::some<Unique>(4);
+    rtl::Option<Unique> opt = rtl::some(Unique(4));
 
     cr_assert(opt);
     cr_assert_eq(opt.unwrap(), 4);
@@ -71,7 +71,7 @@ Test(option, some_constructor)
 
 Test(option, some_default_constructor)
 {
-    auto opt = rtl::some<Unique>();
+    auto opt = rtl::some(Unique());
 
     cr_assert(opt);
     cr_assert_eq(opt.unwrap(), 0);
@@ -163,7 +163,7 @@ Test(option, as_ref_from_const)
 
 Test(option, map_as_ref)
 {
-    const rtl::Option<Unique> mbOrig = rtl::some<Unique>(3);
+    const rtl::Option<Unique> mbOrig = rtl::some(Unique(3));
     rtl::Option<const Unique&> mbRef = mbOrig.as_ref();
     rtl::Option<Unique> mbDoubled = mbRef.map([](const Unique& u) {
         return Unique(u.get() * 2);
@@ -172,7 +172,7 @@ Test(option, map_as_ref)
     cr_assert(mbOrig);
     cr_assert(!mbRef);
     cr_assert(mbDoubled);
-    cr_assert_eq(mbDoubled, rtl::some<Unique>(6));
+    cr_assert_eq(mbDoubled, rtl::some(Unique(6)));
 }
 
 Test(option, unique_ptr)
@@ -211,4 +211,40 @@ Test(option, hash_set)
     cr_assert_neq(set.find(rtl::some<std::string>("hi")), set.end());
     cr_assert_neq(set.find(rtl::some<std::string>("hello")), set.end());
     cr_assert_eq(set.find(rtl::some<std::string>("blabla")), set.end());
+}
+
+Test(option, example)
+{
+    // none
+    rtl::Option<std::string> opt;
+
+    // implicit cast to false for "None" values
+    cr_assert(!opt);
+
+    // assign some value
+    opt = rtl::some("hello");
+
+    // implicit cast to true for "Some" values
+    cr_assert(opt);
+
+    // unwrap takes ownership, leaving "None"
+    cr_assert_eq(opt.unwrap(), "hello");
+    cr_assert_eq(opt.unwrap_or(" world"), " world");
+
+    // alternative syntax to assign a value
+    opt = std::string("im here");
+
+    // as_ref can be used to "borrow" the value (immutably) instead:
+    rtl::Option<size_t> mapped = opt
+                                     .as_ref()
+                                     .map([](const std::string& name) {
+                                         return name + ", too!";
+                                     })
+                                     .unwrap_or_default()
+                                     .size();
+
+    cr_assert_eq(mapped.expect("what?!"), std::strlen("im here, too!"));
+
+    // set to none
+    opt = rtl::none();
 }

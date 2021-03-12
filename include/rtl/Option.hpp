@@ -122,15 +122,6 @@ namespace impl {
 }
 
 template <typename T>
-class Option;
-
-template <typename T, typename... Args>
-constexpr Option<T> some(Args&&... args);
-
-template <typename T>
-constexpr Option<T> none() noexcept;
-
-template <typename T>
 class Option : impl::Base<T> {
 public:
     constexpr Option() noexcept
@@ -150,9 +141,22 @@ public:
         }
     }
 
-    Option(T&& value)
+    template <typename U>
+    Option(U&& value)
     {
-        impl::Base<T>::emplace(std::forward<T>(value));
+        impl::Base<T>::emplace(std::forward<U>(value));
+    }
+
+    template <typename U>
+    Option<T>& operator=(Option<U>&& other)
+    {
+        if (other) {
+            impl::Base<T>::emplace(other.unwrap());
+        } else {
+            take();
+        }
+
+        return *this;
     }
 
     Option<T>& operator=(const Option<T>& other)
@@ -272,7 +276,7 @@ public:
     Option<const T&> as_ref() const
     {
         if (*this) {
-            return rtl::some<const T&>(*impl::Base<T>::get());
+            return { *impl::Base<T>::get() };
         } else {
             return {};
         }
@@ -281,26 +285,23 @@ public:
     Option<T&> as_mut()
     {
         if (*this) {
-            return rtl::some<T&>(*impl::Base<T>::get());
+            return { *impl::Base<T>::get() };
         } else {
             return {};
         }
     }
 };
 
-template <typename T, typename... Args>
-constexpr Option<T> some(Args&&... args)
+template <typename T = std::nullptr_t>
+constexpr Option<T> none()
 {
-    Option<T> opt;
-
-    opt.replace(std::forward<Args>(args)...);
-    return opt;
+    return {};
 }
 
 template <typename T>
-constexpr Option<T> none() noexcept
+constexpr Option<T> some(T&& v)
 {
-    return {};
+    return Option<T>(std::forward<T>(v));
 }
 
 }
