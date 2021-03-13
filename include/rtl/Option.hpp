@@ -170,7 +170,8 @@ public:
         return *this;
     }
 
-    bool operator==(const Option<T>& other) const
+    template <typename U>
+    bool operator==(const Option<U>& other) const
     {
         if (is_none() || other.is_none()) {
             return is_none() && other.is_none();
