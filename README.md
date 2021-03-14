@@ -22,7 +22,7 @@ assert(opt.unwrap() == "hello");
 assert(opt.unwrap_or(" world") == " world");
 
 // alternative syntax to assign a value
-opt = std::string("im here");
+opt = rtl::some("im here");
 
 // as_ref can be used to "borrow" the value (immutably) instead:
 rtl::Option<size_t> mapped = opt
@@ -30,11 +30,12 @@ rtl::Option<size_t> mapped = opt
                                  .map([](const std::string& name) {
                                      return name + ", too!";
                                  })
-                                 .unwrap_or_default()
-                                 .size();
+                                 .map([](const std::string& str) {
+                                     return str.size();
+                                 });
 
 assert(mapped.expect("what?!") == std::strlen("im here, too!"));
 
 // set to none
-opt = rtl::none();
+opt = rtl::none<std::string>();
 ```

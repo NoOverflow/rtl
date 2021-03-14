@@ -9,18 +9,20 @@
 #define RTL_OPTION_HPP_
 
 #include <functional>
+#include <iostream>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
 namespace rtl {
-
 namespace impl {
 
     template <typename T>
     class Base {
     public:
         constexpr Base() noexcept = default;
+
+        Base(Base&&) = delete;
 
         ~Base()
         {
@@ -62,12 +64,12 @@ namespace impl {
         }
 
         // set to some
-        template <typename... Args>
+        template <
+            typename... Args,
+            typename = std::enable_if_t<
+                std::is_constructible<T, Args...>::value>>
         void emplace(Args&&... args)
         {
-            static_assert(std::is_constructible<T, Args...>::value,
-                "Couldn't find a suitable constructor for T");
-
             new (&m_value) T(std::forward<Args>(args)...);
             m_some = true;
         }
@@ -122,6 +124,12 @@ namespace impl {
 }
 
 template <typename T>
+class Option;
+
+template <typename T>
+constexpr Option<T> some(T&&);
+
+template <typename T>
 class Option : impl::Base<T> {
 public:
     constexpr Option() noexcept
@@ -129,40 +137,22 @@ public:
     {
     }
 
-    Option(const Option<T>& other)
+    template <typename U,
+        typename = std::enable_if_t<std::is_constructible<T, U>::value>>
+    Option(Option<U>&& other)
+        : impl::Base<T>()
     {
-        *this = other;
-    }
-
-    Option(Option<T>&& other)
-    {
-        if (other) {
-            impl::Base<T>::emplace(std::forward<T>(other.unwrap()));
+        if (other.is_some()) {
+            impl::Base<T>::emplace(std::forward<U>(other.unwrap()));
         }
     }
 
-    template <typename U>
-    Option(U&& value)
-    {
-        impl::Base<T>::emplace(std::forward<U>(value));
-    }
-
-    template <typename U>
+    template <typename U,
+        typename = std::enable_if_t<std::is_constructible<T, U>::value>>
     Option<T>& operator=(Option<U>&& other)
     {
         if (other) {
             impl::Base<T>::emplace(other.unwrap());
-        } else {
-            take();
-        }
-
-        return *this;
-    }
-
-    Option<T>& operator=(const Option<T>& other)
-    {
-        if (other) {
-            impl::Base<T>::emplace(other.as_ref().unwrap());
         } else {
             take();
         }
@@ -180,7 +170,7 @@ public:
         return as_ref().unwrap() == other.as_ref().unwrap();
     }
 
-    operator bool() const
+    explicit operator bool() const
     {
         return is_some();
     }
@@ -214,7 +204,7 @@ public:
 
     T unwrap_or(T val)
     {
-        if (*this) {
+        if (is_some()) {
             return std::forward<T>(unwrap());
         } else {
             return std::forward<T>(val);
@@ -226,7 +216,7 @@ public:
         static_assert(std::is_default_constructible<T>::value,
             "No default constructor for T");
 
-        if (*this) {
+        if (is_some()) {
             return std::forward<T>(unwrap());
         } else {
             return {};
@@ -236,7 +226,7 @@ public:
     template <typename F>
     T unwrap_or_else(F&& f)
     {
-        if (*this) {
+        if (is_some()) {
             return std::forward<T>(unwrap());
         } else {
             return std::forward<T>(f());
@@ -245,7 +235,7 @@ public:
 
     Option<T> take()
     {
-        if (*this) {
+        if (is_some()) {
             Option<T> oldVal;
             oldVal.impl::Base<T>::emplace(std::forward<T>(unwrap()));
             return oldVal;
@@ -254,7 +244,8 @@ public:
         }
     }
 
-    template <typename... Args>
+    template <typename... Args,
+        typename = std::enable_if_t<std::is_constructible<T, Args...>::value>>
     Option<T> replace(Args&&... args)
     {
         Option<T> oldVal = take();
@@ -267,33 +258,39 @@ public:
     template <typename F>
     auto map(F&& f) -> Option<decltype(f(unwrap()))>
     {
-        if (*this) {
-            return { f(unwrap()) };
-        } else {
-            return {};
+        Option<decltype(f(unwrap()))> opt;
+
+        if (is_some()) {
+            opt.replace(f(unwrap()));
         }
+
+        return opt;
     }
 
     Option<const T&> as_ref() const
     {
-        if (*this) {
-            return { *impl::Base<T>::get() };
-        } else {
-            return {};
+        Option<const T&> opt;
+
+        if (is_some()) {
+            opt.replace(*impl::Base<T>::get());
         }
+
+        return opt;
     }
 
     Option<T&> as_mut()
     {
-        if (*this) {
-            return { *impl::Base<T>::get() };
-        } else {
-            return {};
+        Option<T&> opt;
+
+        if (is_some()) {
+            opt.replace(*impl::Base<T>::get());
         }
+
+        return opt;
     }
 };
 
-template <typename T = std::nullptr_t>
+template <typename T>
 constexpr Option<T> none()
 {
     return {};
@@ -302,7 +299,10 @@ constexpr Option<T> none()
 template <typename T>
 constexpr Option<T> some(T&& v)
 {
-    return Option<T>(std::forward<T>(v));
+    Option<T> opt;
+
+    opt.replace(std::forward<T>(v));
+    return opt;
 }
 
 }
@@ -314,19 +314,40 @@ struct hash<rtl::Option<T>> {
     using argument_type = rtl::Option<T>;
     using result_type = std::size_t;
 
+    using base_type = std::remove_cv_t<std::remove_reference_t<T>>;
+
     result_type operator()(const argument_type& opt) const
     {
         result_type hash = 17;
-        hash = hash * 31 + std::hash<bool>()(opt);
+        hash = hash * 31 + std::hash<bool>()(opt.is_some());
         if (opt) {
-            hash = hash * 31
-                + std::hash<std::remove_cv_t<std::remove_reference_t<T>>>()(
-                    opt.as_ref().unwrap());
+            hash = hash * 31 + std::hash<base_type>()(opt.as_ref().unwrap());
         }
         return hash;
     }
 };
 
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const rtl::Option<T>& opt)
+{
+    if (opt) {
+        return os << "Some(" << opt.as_ref().unwrap() << ")";
+    } else {
+        return os << "None";
+    }
+}
+
+template <>
+std::ostream& operator<<(std::ostream& os,
+    const rtl::Option<std::nullptr_t>& opt)
+{
+    if (opt) {
+        return os << "Some(nullptr)";
+    } else {
+        return os << "None";
+    }
 }
 
 #endif /* !RTL_OPTION_HPP_ */
