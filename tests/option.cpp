@@ -217,6 +217,24 @@ Test(option, hash_set)
     cr_assert_eq(set.find(some("blabla")), set.end());
 }
 
+Test(option, flatten)
+{
+    cr_assert_eq(none<Option<int>>().flatten(), none<int>());
+    cr_assert_eq(some(none<int>()).flatten(), none<int>());
+    cr_assert_eq(some(some(3)).flatten(), some(3));
+}
+
+Test(option, and_then)
+{
+    auto sqr = [](int v) { return some(v * v); };
+    auto nonify = [](int) { return none<int>(); };
+
+    cr_assert_eq(none<int>().and_then(sqr), none<int>());
+    cr_assert_eq(none<int>().and_then(nonify), none<int>());
+    cr_assert_eq(some(5).and_then(sqr), some(25));
+    cr_assert_eq(some(5).and_then(nonify), none<int>());
+}
+
 Test(option, example)
 {
     // none

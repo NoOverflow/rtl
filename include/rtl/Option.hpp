@@ -129,6 +129,14 @@ class Option;
 template <typename T>
 constexpr Option<T> some(T&&);
 
+template <typename>
+struct is_option : std::false_type {
+};
+
+template <typename T>
+struct is_option<Option<T>> : std::true_type {
+};
+
 template <typename T>
 class Option : impl::Base<T> {
 public:
@@ -255,18 +263,6 @@ public:
         return oldVal;
     }
 
-    template <typename F>
-    auto map(F&& f) -> Option<decltype(f(unwrap()))>
-    {
-        Option<decltype(f(unwrap()))> opt;
-
-        if (is_some()) {
-            opt.replace(f(unwrap()));
-        }
-
-        return opt;
-    }
-
     Option<const T&> as_ref() const
     {
         Option<const T&> opt;
@@ -287,6 +283,36 @@ public:
         }
 
         return opt;
+    }
+
+    template <typename F>
+    auto map(F&& f) -> Option<decltype(f(unwrap()))>
+    {
+        Option<decltype(f(unwrap()))> opt;
+
+        if (is_some()) {
+            opt.replace(f(unwrap()));
+        }
+
+        return opt;
+    }
+
+    template <typename U>
+    Option<U> operator&(Option<U>&& optb)
+    {
+        return is_some() ? std::forward<Option<U>>(optb) : {};
+    }
+
+    template <typename F>
+    decltype(auto) and_then(F&& f)
+    {
+        return map(std::forward<F>(f)).flatten();
+    }
+
+    template <typename = std::enable_if_t<is_option<T>::value>>
+    decltype(auto) flatten()
+    {
+        return unwrap_or_default();
     }
 };
 
