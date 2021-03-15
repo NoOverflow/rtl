@@ -339,15 +339,4 @@ std::ostream& operator<<(std::ostream& os, const rtl::Option<T>& opt)
     }
 }
 
-template <>
-std::ostream& operator<<(std::ostream& os,
-    const rtl::Option<std::nullptr_t>& opt)
-{
-    if (opt) {
-        return os << "Some(nullptr)";
-    } else {
-        return os << "None";
-    }
-}
-
 #endif /* !RTL_OPTION_HPP_ */
