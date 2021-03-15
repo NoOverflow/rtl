@@ -286,15 +286,13 @@ public:
     }
 
     template <typename F>
-    auto map(F&& f) -> Option<decltype(f(unwrap()))>
+    decltype(auto) map(F&& f)
     {
-        Option<decltype(f(unwrap()))> opt;
-
         if (is_some()) {
-            opt.replace(f(unwrap()));
+            return some(f(unwrap()));
+        } else {
+            return none<decltype(f(unwrap()))>();
         }
-
-        return opt;
     }
 
     template <typename U>
