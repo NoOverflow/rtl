@@ -219,11 +219,10 @@ public:
         }
     }
 
+    template <typename = std::enable_if_t<
+                  std::is_default_constructible<T>::value>>
     T unwrap_or_default()
     {
-        static_assert(std::is_default_constructible<T>::value,
-            "No default constructor for T");
-
         if (is_some()) {
             return std::forward<T>(unwrap());
         } else {
