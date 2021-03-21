@@ -121,6 +121,30 @@ namespace impl {
     private:
         std::add_pointer_t<T> m_value = nullptr;
     };
+
+    template <typename M, typename T>
+    class MethodProxy {
+    public:
+        using class_type = std::remove_cv_t<std::remove_reference_t<T>>;
+        using method_type = M class_type::*;
+
+    private:
+        T instance;
+        method_type method;
+
+    public:
+        MethodProxy(T obj, method_type method)
+            : instance(std::move(obj))
+            , method(method)
+        {
+        }
+
+        template <typename... Args>
+        decltype(auto) operator()(Args&&... args)
+        {
+            return (instance.*method)(std::forward<Args>(args)...);
+        }
+    };
 }
 
 template <typename T>
@@ -144,6 +168,8 @@ public:
         : impl::Base<T>()
     {
     }
+
+    ~Option() = default;
 
     template <typename U,
         typename = std::enable_if_t<std::is_constructible<T, U>::value>>
@@ -210,6 +236,7 @@ public:
         return std::forward<T>(expect("unwrap() called on a `none` value"));
     }
 
+    template <typename = std::enable_if_t<!std::is_member_pointer<T>::value>>
     T unwrap_or(T val)
     {
         if (is_some()) {
@@ -252,12 +279,23 @@ public:
     }
 
     template <typename... Args,
-        typename = std::enable_if_t<std::is_constructible<T, Args...>::value>>
+        typename = std::enable_if_t<!std::is_member_pointer<T>::value
+            && std::is_constructible<T, Args...>::value>>
     Option<T> replace(Args&&... args)
     {
         Option<T> oldVal = take();
 
         impl::Base<T>::emplace(std::forward<Args>(args)...);
+
+        return oldVal;
+    }
+
+    template <typename = std::enable_if_t<std::is_member_pointer<T>::value>>
+    Option<T> replace(T mem)
+    {
+        Option<T> oldVal = take();
+
+        impl::Base<T>::emplace(mem);
 
         return oldVal;
     }
@@ -284,7 +322,9 @@ public:
         return opt;
     }
 
-    template <typename F>
+    template <typename F,
+        typename = std::enable_if_t<
+            !std::is_void<std::result_of_t<F(T)>>::value>>
     decltype(auto) map(F&& f)
     {
         if (is_some()) {
@@ -294,13 +334,9 @@ public:
         }
     }
 
-    template <typename U>
-    Option<U> operator&(Option<U>&& optb)
-    {
-        return is_some() ? std::forward<Option<U>>(optb) : {};
-    }
-
-    template <typename F>
+    template <typename F,
+        typename = std::enable_if_t<
+            !std::is_void<std::result_of_t<F(T)>>::value>>
     decltype(auto) and_then(F&& f)
     {
         return map(std::forward<F>(f)).flatten();
@@ -310,6 +346,75 @@ public:
     decltype(auto) flatten()
     {
         return unwrap_or_default();
+    }
+
+    template <typename... Args>
+    typename Option<typename std::result_of<T(Args...)>::type>
+    call(Args&&... args)
+    {
+        if (is_some()) {
+            return some(unwrap()(std::forward<Args>(args)...));
+        } else {
+            return {};
+        }
+    }
+
+    template <typename U>
+    Option<U> operator&(Option<U>&& optb)
+    {
+        return is_some() ? std::forward<Option<U>>(optb) : {};
+    }
+
+    template <typename F,
+        typename = std::enable_if_t<
+            !std::is_void<std::result_of_t<F(T)>>::value>>
+    decltype(auto) operator|(F&& f)
+    {
+        return map(f);
+    }
+
+    template <typename F,
+        typename = std::enable_if_t<
+            std::is_void<std::result_of_t<F(T)>>::value>>
+    bool operator|(F&& f)
+    {
+        if (is_some()) {
+            f(unwrap());
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    template <typename U, typename Q = T>
+    decltype(auto) operator|(U Q::*method)
+    {
+        return *this | std::mem_fn(method);
+    }
+
+    template <typename M, typename Q = T>
+    typename std::enable_if_t<!std::is_function<M>::value, Option<M>>
+    operator[](M Q::*member)
+    {
+        return map([&](T val) {
+            return val.*member;
+        });
+    }
+
+    template <typename M, typename Q = T,
+        typename = std::enable_if_t<std::is_function<M>::value>>
+    decltype(auto) operator[](M Q::*member)
+    {
+        return map([&](T val) {
+            return impl::MethodProxy<M, T>(std::forward<T>(val), member);
+        });
+    }
+
+    template <typename... Args>
+    typename Option<typename std::result_of<T(Args...)>::type>
+    operator()(Args&&... args)
+    {
+        return call(std::forward<Args>(args)...);
     }
 };
 

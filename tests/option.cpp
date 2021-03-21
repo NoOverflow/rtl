@@ -235,6 +235,120 @@ Test(option, and_then)
     cr_assert_eq(some(5).and_then(nonify), none<int>());
 }
 
+Test(option, pipe_some)
+{
+    auto opt = some(5);
+
+    cr_assert_eq(
+        opt
+            | [](int n) { return n * n; }
+            | [](int n) { return n + 1; }
+            | [](int n) { return n / 2; }
+            | [](int n) { return n - 5; },
+        some((5 * 5 + 1) / 2 - 5));
+}
+
+Test(option, pipe_none)
+{
+    auto opt = none<int>();
+
+    cr_assert((
+        opt
+        | [](int n) { return n * n; }
+        | [](int n) { return n + 1; }
+        | [](int n) { return n / 2; }
+        | [](int n) { return n - 5; })
+                  .is_none());
+}
+
+Test(option, pipe_some_void)
+{
+    auto opt = some(5);
+    int piped = 0;
+
+    cr_assert(
+        opt
+        | [](int n) { return n * n; }
+        | [](int n) { return n + 1; }
+        | [](int n) { return n / 2; }
+        | [](int n) { return n - 5; }
+        | [&](int n) { piped = n; });
+
+    cr_assert_eq(piped, (5 * 5 + 1) / 2 - 5);
+}
+
+Test(option, pipe_none_void)
+{
+    auto opt = none<int>();
+    int piped = 0;
+
+    cr_assert_not(
+        opt
+        | [](int n) { return n * n; }
+        | [](int n) { return n + 1; }
+        | [](int n) { return n / 2; }
+        | [](int n) { return n - 5; }
+        | [&](int n) { piped = n; });
+
+    cr_assert_eq(piped, 0);
+}
+
+static int return_five()
+{
+    return 5;
+}
+
+Test(option, function_pointer)
+{
+    Option<int (*)()> opt;
+
+    cr_assert(opt.is_none());
+
+    opt.replace(&return_five);
+    cr_assert_eq(opt, some(&return_five));
+}
+
+Test(option, member_pointer)
+{
+    Option<decltype(&std::string::size)> opt;
+
+    cr_assert(opt.is_none());
+
+    opt.replace(&std::string::size);
+    cr_assert_eq(opt, some(&std::string::size));
+}
+
+Test(option, function_call_coalescing)
+{
+    auto opt = some([](int n) { return n * 2; });
+
+    cr_assert_eq(opt(3), some(6));
+
+    opt.take();
+    cr_assert_eq(opt(5), none<int>());
+}
+
+Test(option, member_access)
+{
+    struct A {
+        int field;
+
+        int method() const
+        {
+            return field;
+        }
+    };
+
+    cr_assert_eq(some<A>({ 5 })[&A::field], some(5));
+    cr_assert_eq(some<A>({ 5 })[&A::method](), some(5));
+    cr_assert_eq(some<A>({ 5 }) | &A::method, some(5));
+
+    auto nothing = none<A>();
+    cr_assert(nothing[&A::field].is_none());
+    cr_assert(nothing[&A::method]().is_none());
+    cr_assert((nothing | &A::method).is_none());
+}
+
 Test(option, example)
 {
     // none
