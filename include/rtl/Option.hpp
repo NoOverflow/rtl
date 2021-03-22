@@ -349,13 +349,26 @@ public:
     }
 
     template <typename... Args>
-    typename Option<typename std::result_of<T(Args...)>::type>
+    std::enable_if_t<!std::is_void<std::result_of_t<T(Args...)>>::value,
+        typename Option<typename std::result_of<T(Args...)>::type>>
     call(Args&&... args)
     {
         if (is_some()) {
             return some(unwrap()(std::forward<Args>(args)...));
         } else {
             return {};
+        }
+    }
+
+    template <typename... Args>
+    std::enable_if_t<std::is_void<std::result_of_t<T(Args...)>>::value, bool>
+    call(Args&&... args)
+    {
+        if (is_some()) {
+            unwrap()(std::forward<Args>(args)...);
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -411,8 +424,7 @@ public:
     }
 
     template <typename... Args>
-    typename Option<typename std::result_of<T(Args...)>::type>
-    operator()(Args&&... args)
+    decltype(auto) operator()(Args&&... args)
     {
         return call(std::forward<Args>(args)...);
     }
