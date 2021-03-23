@@ -153,6 +153,9 @@ class Option;
 template <typename T>
 constexpr Option<T> some(T&&);
 
+template <typename T>
+constexpr Option<T> none();
+
 template <typename>
 struct is_option : std::false_type {
 };
@@ -164,6 +167,8 @@ struct is_option<Option<T>> : std::true_type {
 template <typename T>
 class Option : impl::Base<T> {
 public:
+    using value = T;
+
     constexpr Option() noexcept
         : impl::Base<T>()
     {
@@ -201,7 +206,10 @@ public:
             return is_none() && other.is_none();
         }
 
-        return as_ref().unwrap() == other.as_ref().unwrap();
+        const T& lhs = as_ref().unwrap();
+        const U& rhs = other.as_ref().unwrap();
+
+        return lhs == rhs;
     }
 
     explicit operator bool() const
@@ -236,8 +244,9 @@ public:
         return std::forward<T>(expect("unwrap() called on a `none` value"));
     }
 
-    template <typename = std::enable_if_t<!std::is_member_pointer<T>::value>>
-    T unwrap_or(T val)
+    template <typename Q = T>
+    auto unwrap_or(T val)
+        -> std::enable_if_t<!std::is_member_pointer<T>::value, Q>
     {
         if (is_some()) {
             return std::forward<T>(unwrap());
@@ -246,9 +255,9 @@ public:
         }
     }
 
-    template <typename = std::enable_if_t<
-                  std::is_default_constructible<T>::value>>
-    T unwrap_or_default()
+    template <typename Q = T>
+    auto unwrap_or_default()
+        -> std::enable_if_t<std::is_default_constructible<T>::value, Q>
     {
         if (is_some()) {
             return std::forward<T>(unwrap());
@@ -290,8 +299,8 @@ public:
         return oldVal;
     }
 
-    template <typename = std::enable_if_t<std::is_member_pointer<T>::value>>
-    Option<T> replace(T mem)
+    template <typename U, typename Q = T>
+    Option<T> replace(U Q::*mem)
     {
         Option<T> oldVal = take();
 
@@ -342,15 +351,15 @@ public:
         return map(std::forward<F>(f)).flatten();
     }
 
-    template <typename = std::enable_if_t<is_option<T>::value>>
-    decltype(auto) flatten()
+    template <typename Q = T>
+    auto flatten() -> std::enable_if_t<is_option<T>::value, Q>
     {
         return unwrap_or_default();
     }
 
     template <typename... Args>
     std::enable_if_t<!std::is_void<std::result_of_t<T(Args...)>>::value,
-        typename Option<typename std::result_of<T(Args...)>::type>>
+        Option<std::result_of_t<T(Args...)>>>
     call(Args&&... args)
     {
         if (is_some()) {
@@ -370,12 +379,6 @@ public:
         } else {
             return false;
         }
-    }
-
-    template <typename U>
-    Option<U> operator&(Option<U>&& optb)
-    {
-        return is_some() ? std::forward<Option<U>>(optb) : {};
     }
 
     template <typename F,
@@ -445,6 +448,16 @@ constexpr Option<T> some(T&& v)
     return opt;
 }
 
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const Option<T>& opt)
+{
+    if (opt) {
+        return os << "Some(" << opt.as_ref().unwrap() << ")";
+    } else {
+        return os << "None";
+    }
+}
+
 }
 
 namespace std {
@@ -467,16 +480,6 @@ struct hash<rtl::Option<T>> {
     }
 };
 
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const rtl::Option<T>& opt)
-{
-    if (opt) {
-        return os << "Some(" << opt.as_ref().unwrap() << ")";
-    } else {
-        return os << "None";
-    }
 }
 
 #endif /* !RTL_OPTION_HPP_ */

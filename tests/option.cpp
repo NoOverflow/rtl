@@ -125,6 +125,14 @@ Test(option, unwrap_or)
     cr_assert_eq(some(8).unwrap_or_else([]() { return 3; }), 8);
 }
 
+Test(option, stream_operator)
+{
+    std::stringstream ss;
+
+    ss << some(9) << ", " << none<int>();
+    cr_assert_eq(ss.str(), "Some(9), None");
+}
+
 Test(option, as_ref)
 {
     Option<int> opt = some(3);
@@ -315,7 +323,7 @@ Test(option, member_pointer)
     cr_assert(opt.is_none());
 
     opt.replace(&std::string::size);
-    cr_assert_eq(opt, some(&std::string::size));
+    cr_assert(opt == some(&std::string::size));
 }
 
 Test(option, function_call_coalescing)
