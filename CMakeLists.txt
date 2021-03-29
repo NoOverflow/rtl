@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 
+if(TARGET rtl)
+    return()
+endif()
+
 project(rtl)
 include(CTest)
 
