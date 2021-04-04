@@ -145,6 +145,12 @@ namespace impl {
             return (instance.*method)(std::forward<Args>(args)...);
         }
     };
+
+    template <typename M, typename T>
+    ::std::ostream& operator<<(::std::ostream& os, const MethodProxy<M, T>&)
+    {
+        return os << "MethodProxy";
+    }
 }
 
 template <typename T>

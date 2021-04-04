@@ -6,7 +6,7 @@
 */
 
 #include "rtl/Option.hpp"
-#include <criterion/criterion.h>
+#include "gtest/gtest.h"
 #include <functional>
 #include <string>
 #include <unordered_set>
@@ -57,123 +57,128 @@ private:
     int m_val = 0;
 };
 
-Test(option, default_constructor_is_none)
+::std::ostream& operator<<(::std::ostream& os, const Unique& unique)
+{
+    return os << "Unique(" << unique.get() << ")";
+}
+
+TEST(option, default_constructor_is_none)
 {
     Option<Unique> opt;
 
-    cr_assert(!opt);
+    ASSERT_TRUE(!opt);
 }
 
-Test(option, some_constructor)
+TEST(option, some_constructor)
 {
     Option<Unique> opt = some(Unique(4));
 
-    cr_assert(opt);
-    cr_assert_eq(opt.unwrap(), 4);
-    cr_assert(!opt);
+    ASSERT_TRUE(opt);
+    ASSERT_EQ(opt.unwrap(), 4);
+    ASSERT_TRUE(!opt);
 }
 
-Test(option, some_default_constructor)
+TEST(option, some_default_constructor)
 {
     auto opt = some(Unique());
 
-    cr_assert(opt.is_some());
-    cr_assert_eq(opt.unwrap(), 0);
+    ASSERT_TRUE(opt.is_some());
+    ASSERT_EQ(opt.unwrap(), 0);
 }
 
-Test(option, replace_some)
+TEST(option, replace_some)
 {
     Option<std::string> opt;
 
-    cr_assert(opt.replace("hello").is_none());
-    cr_assert(opt);
-    cr_assert_eq(opt.unwrap(), "hello");
+    ASSERT_TRUE(opt.replace("hello").is_none());
+    ASSERT_TRUE(opt);
+    ASSERT_EQ(opt.unwrap(), "hello");
 }
 
-Test(option, replace_none)
+TEST(option, replace_none)
 {
     auto opt = some<std::string>("hello");
 
-    cr_assert(opt.is_some());
-    cr_assert_eq(opt.unwrap(), "hello");
-    cr_assert(opt.replace("hi").is_none());
-    cr_assert(opt.is_some());
-    cr_assert_eq(opt.unwrap(), "hi");
+    ASSERT_TRUE(opt.is_some());
+    ASSERT_EQ(opt.unwrap(), "hello");
+    ASSERT_TRUE(opt.replace("hi").is_none());
+    ASSERT_TRUE(opt.is_some());
+    ASSERT_EQ(opt.unwrap(), "hi");
 }
 
-Test(option, map_simple)
+TEST(option, map_simple)
 {
     auto opt = some(3);
     auto dbl = opt.map([](int v) { return v * 2; });
 
-    cr_assert(dbl.is_some());
-    cr_assert_eq(dbl.unwrap(), 6);
+    ASSERT_TRUE(dbl.is_some());
+    ASSERT_EQ(dbl.unwrap(), 6);
 }
 
-Test(option, unwrap_none)
+TEST(option, unwrap_none)
 {
-    cr_assert_any_throw(none<int>().unwrap());
+    ASSERT_ANY_THROW(none<int>().unwrap());
 }
 
-Test(option, unwrap_or)
+TEST(option, unwrap_or)
 {
-    cr_assert_eq(none<int>().unwrap_or_default(), 0);
-    cr_assert_eq(some(8).unwrap_or_default(), 8);
-    cr_assert_eq(none<int>().unwrap_or(3), 3);
-    cr_assert_eq(some(8).unwrap_or(3), 8);
-    cr_assert_eq(none<int>().unwrap_or_else([]() { return 3; }), 3);
-    cr_assert_eq(some(8).unwrap_or_else([]() { return 3; }), 8);
+    ASSERT_EQ(none<int>().unwrap_or_default(), 0);
+    ASSERT_EQ(some(8).unwrap_or_default(), 8);
+    ASSERT_EQ(none<int>().unwrap_or(3), 3);
+    ASSERT_EQ(some(8).unwrap_or(3), 8);
+    ASSERT_EQ(none<int>().unwrap_or_else([]() { return 3; }), 3);
+    ASSERT_EQ(some(8).unwrap_or_else([]() { return 3; }), 8);
 }
 
-Test(option, stream_operator)
+TEST(option, stream_operator)
 {
     std::stringstream ss;
 
     ss << some(9) << ", " << none<int>();
-    cr_assert_eq(ss.str(), "Some(9), None");
+    ASSERT_EQ(ss.str(), "Some(9), None");
 }
 
-Test(option, as_ref)
+TEST(option, as_ref)
 {
     Option<int> opt = some(3);
     Option<const int&> ref = opt.as_ref();
 
-    cr_assert_eq(ref.unwrap(), 3);
+    ASSERT_EQ(ref.unwrap(), 3);
 }
 
-Test(option, as_mut)
+TEST(option, as_mut)
 {
     Option<int> opt = some(3);
     Option<int&> mut = opt.as_mut();
 
-    cr_assert(mut);
+    ASSERT_TRUE(mut);
     mut.unwrap() = 5;
-    cr_assert_eq(opt.unwrap(), 5);
+    ASSERT_EQ(opt.unwrap(), 5);
 }
 
-Test(option, as_ref_none)
+TEST(option, as_ref_none)
 {
     Option<const int&> ref = none<int>().as_ref();
 
-    cr_assert(!ref);
+    ASSERT_TRUE(!ref);
 }
 
-Test(option, as_mut_none)
+TEST(option, as_mut_none)
 {
     Option<int&> mut = none<int>().as_mut();
 
-    cr_assert(!mut);
+    ASSERT_TRUE(!mut);
 }
 
-Test(option, as_ref_from_const)
+TEST(option, as_ref_from_const)
 {
     const Option<int> opt = some(3);
     Option<const int&> ref = opt.as_ref();
 
-    cr_assert_eq(ref.unwrap(), 3);
+    ASSERT_EQ(ref.unwrap(), 3);
 }
 
-Test(option, map_as_ref)
+TEST(option, map_as_ref)
 {
     const Option<Unique> mbOrig = some(Unique(3));
     Option<const Unique&> mbRef = mbOrig.as_ref();
@@ -181,26 +186,26 @@ Test(option, map_as_ref)
         return Unique(u.get() * 2);
     });
 
-    cr_assert(mbOrig);
-    cr_assert(!mbRef);
-    cr_assert(mbDoubled);
-    cr_assert_eq(mbDoubled, some(Unique(6)));
+    ASSERT_TRUE(mbOrig);
+    ASSERT_TRUE(!mbRef);
+    ASSERT_TRUE(mbDoubled);
+    ASSERT_EQ(mbDoubled, some(Unique(6)));
 }
 
-Test(option, unique_ptr)
+TEST(option, unique_ptr)
 {
     Option<std::unique_ptr<int>> opt = some(std::make_unique<int>(3));
 
-    cr_assert(opt);
-    cr_assert_eq(*opt.unwrap(), 3);
+    ASSERT_TRUE(opt);
+    ASSERT_EQ(*opt.unwrap(), 3);
     opt.replace(new int(56));
     opt.replace(new int(139));
-    cr_assert(opt);
-    cr_assert_eq(*opt.unwrap(), 139);
+    ASSERT_TRUE(opt);
+    ASSERT_EQ(*opt.unwrap(), 139);
     opt.replace(std::make_unique<int>(42));
 }
 
-Test(option, hash_owned)
+TEST(option, hash_owned)
 {
     Option<int> owned;
     Option<int&> mut;
@@ -211,7 +216,7 @@ Test(option, hash_owned)
     std::hash<Option<const int&>>()(ref);
 }
 
-Test(option, hash_set)
+TEST(option, hash_set)
 {
     std::unordered_set<Option<std::string>> set;
 
@@ -219,35 +224,35 @@ Test(option, hash_set)
     set.emplace();
     set.emplace(some("hi"));
     set.emplace(some("hello"));
-    cr_assert_neq(set.find(none<std::string>()), set.end());
-    cr_assert_neq(set.find(some("hi")), set.end());
-    cr_assert_neq(set.find(some("hello")), set.end());
-    cr_assert_eq(set.find(some("blabla")), set.end());
+    ASSERT_NE(set.find(none<std::string>()), set.end());
+    ASSERT_NE(set.find(some("hi")), set.end());
+    ASSERT_NE(set.find(some("hello")), set.end());
+    ASSERT_EQ(set.find(some("blabla")), set.end());
 }
 
-Test(option, flatten)
+TEST(option, flatten)
 {
-    cr_assert_eq(none<Option<int>>().flatten(), none<int>());
-    cr_assert_eq(some(none<int>()).flatten(), none<int>());
-    cr_assert_eq(some(some(3)).flatten(), some(3));
+    ASSERT_EQ(none<Option<int>>().flatten(), none<int>());
+    ASSERT_EQ(some(none<int>()).flatten(), none<int>());
+    ASSERT_EQ(some(some(3)).flatten(), some(3));
 }
 
-Test(option, and_then)
+TEST(option, and_then)
 {
     auto sqr = [](int v) { return some(v * v); };
     auto nonify = [](int) { return none<int>(); };
 
-    cr_assert_eq(none<int>().and_then(sqr), none<int>());
-    cr_assert_eq(none<int>().and_then(nonify), none<int>());
-    cr_assert_eq(some(5).and_then(sqr), some(25));
-    cr_assert_eq(some(5).and_then(nonify), none<int>());
+    ASSERT_EQ(none<int>().and_then(sqr), none<int>());
+    ASSERT_EQ(none<int>().and_then(nonify), none<int>());
+    ASSERT_EQ(some(5).and_then(sqr), some(25));
+    ASSERT_EQ(some(5).and_then(nonify), none<int>());
 }
 
-Test(option, pipe_some)
+TEST(option, pipe_some)
 {
     auto opt = some(5);
 
-    cr_assert_eq(
+    ASSERT_EQ(
         opt
             | [](int n) { return n * n; }
             | [](int n) { return n + 1; }
@@ -256,11 +261,11 @@ Test(option, pipe_some)
         some((5 * 5 + 1) / 2 - 5));
 }
 
-Test(option, pipe_none)
+TEST(option, pipe_none)
 {
     auto opt = none<int>();
 
-    cr_assert((
+    ASSERT_TRUE((
         opt
         | [](int n) { return n * n; }
         | [](int n) { return n + 1; }
@@ -269,12 +274,12 @@ Test(option, pipe_none)
                   .is_none());
 }
 
-Test(option, pipe_some_void)
+TEST(option, pipe_some_void)
 {
     auto opt = some(5);
     int piped = 0;
 
-    cr_assert(
+    ASSERT_TRUE(
         opt
         | [](int n) { return n * n; }
         | [](int n) { return n + 1; }
@@ -282,15 +287,15 @@ Test(option, pipe_some_void)
         | [](int n) { return n - 5; }
         | [&](int n) { piped = n; });
 
-    cr_assert_eq(piped, (5 * 5 + 1) / 2 - 5);
+    ASSERT_EQ(piped, (5 * 5 + 1) / 2 - 5);
 }
 
-Test(option, pipe_none_void)
+TEST(option, pipe_none_void)
 {
     auto opt = none<int>();
     int piped = 0;
 
-    cr_assert_not(
+    ASSERT_FALSE(
         opt
         | [](int n) { return n * n; }
         | [](int n) { return n + 1; }
@@ -298,7 +303,7 @@ Test(option, pipe_none_void)
         | [](int n) { return n - 5; }
         | [&](int n) { piped = n; });
 
-    cr_assert_eq(piped, 0);
+    ASSERT_EQ(piped, 0);
 }
 
 static int return_five()
@@ -306,37 +311,37 @@ static int return_five()
     return 5;
 }
 
-Test(option, function_pointer)
+TEST(option, function_pointer)
 {
     Option<int (*)()> opt;
 
-    cr_assert(opt.is_none());
+    ASSERT_TRUE(opt.is_none());
 
     opt.replace(&return_five);
-    cr_assert_eq(opt, some(&return_five));
+    ASSERT_EQ(opt, some(&return_five));
 }
 
-Test(option, member_pointer)
+TEST(option, member_pointer)
 {
     Option<decltype(&std::string::size)> opt;
 
-    cr_assert(opt.is_none());
+    ASSERT_TRUE(opt.is_none());
 
     opt.replace(&std::string::size);
-    cr_assert(opt == some(&std::string::size));
+    ASSERT_TRUE(opt == some(&std::string::size));
 }
 
-Test(option, function_call_coalescing)
+TEST(option, function_call_coalescing)
 {
     auto opt = some([](int n) { return n * 2; });
 
-    cr_assert_eq(opt(3), some(6));
+    ASSERT_EQ(opt(3), some(6));
 
     opt.take();
-    cr_assert_eq(opt(5), none<int>());
+    ASSERT_EQ(opt(5), none<int>());
 }
 
-Test(option, member_access)
+TEST(option, member_access)
 {
     struct A {
         int field;
@@ -347,33 +352,33 @@ Test(option, member_access)
         }
     };
 
-    cr_assert_eq(some<A>({ 5 })[&A::field], some(5));
-    cr_assert_eq(some<A>({ 5 })[&A::method](), some(5));
-    cr_assert_eq(some<A>({ 5 }) | &A::method, some(5));
+    ASSERT_EQ(some<A>({ 5 })[&A::field], some(5));
+    ASSERT_EQ(some<A>({ 5 })[&A::method](), some(5));
+    ASSERT_EQ(some<A>({ 5 }) | &A::method, some(5));
 
     auto nothing = none<A>();
-    cr_assert(nothing[&A::field].is_none());
-    cr_assert(nothing[&A::method]().is_none());
-    cr_assert((nothing | &A::method).is_none());
+    ASSERT_TRUE(nothing[&A::field].is_none());
+    ASSERT_TRUE(nothing[&A::method]().is_none());
+    ASSERT_TRUE((nothing | &A::method).is_none());
 }
 
-Test(option, example)
+TEST(option, example)
 {
     // none
     rtl::Option<std::string> opt;
 
     // implicit cast to false for "None" values
-    cr_assert(!opt);
+    ASSERT_TRUE(!opt);
 
     // assign some value
     opt = rtl::some("hello");
 
     // implicit cast to true for "Some" values
-    cr_assert(opt);
+    ASSERT_TRUE(opt);
 
     // unwrap takes ownership, leaving "None"
-    cr_assert_eq(opt.unwrap(), "hello");
-    cr_assert_eq(opt.unwrap_or(" world"), " world");
+    ASSERT_EQ(opt.unwrap(), "hello");
+    ASSERT_EQ(opt.unwrap_or(" world"), " world");
 
     // alternative syntax to assign a value
     opt = rtl::some("im here");
@@ -388,7 +393,7 @@ Test(option, example)
                                          return str.size();
                                      });
 
-    cr_assert_eq(mapped.expect("what?!"), std::strlen("im here, too!"));
+    ASSERT_EQ(mapped.expect("what?!"), std::strlen("im here, too!"));
 
     // set to none
     opt = rtl::none<std::string>();
